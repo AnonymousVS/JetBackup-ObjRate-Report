@@ -41,16 +41,16 @@ if [ -n "$1" ]; then
 fi
 
 echo ""
-echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║         BACKUP REPORT — $(hostname) — $(TZ='Asia/Bangkok' date '+%d %b %Y %H:%M')       ║"
-echo "╠══════════════════════════════════════════════════════════════════╣"
+echo "╔══════════════════════════════════════════════════════════════════════════╗"
+echo "║  BACKUP REPORT — $(hostname) — $(TZ='Asia/Bangkok' date '+%d %b %Y %H:%M')"
+echo "╠══════════════════════════════════════════════════════════════════════════╣"
 echo "║  Filter: $FILTER_LABEL"
-echo "╚══════════════════════════════════════════════════════════════════╝"
+echo "╚══════════════════════════════════════════════════════════════════════════╝"
 echo ""
 
-printf " %-18s │ %-8s │ %-8s │ %-8s │ %12s │ %10s │ %8s\n" \
-    "Account" "Start" "End" "Duration" "Est.Objects" "obj/min" "obj/sec"
-echo "────────────────────┼──────────┼──────────┼──────────┼──────────────┼────────────┼─────────"
+printf " %-12s │ %-18s │ %-5s │ %-5s │ %-8s │ %12s\n" \
+    "Date" "Account" "Start" "End" "Duration" "Est.Objects"
+echo "──────────────┼────────────────────┼───────┼───────┼──────────┼──────────────"
 
 TOTAL_SEC=0
 TOTAL_OBJ=0
@@ -84,29 +84,31 @@ for LOG in "${QUEUE_DIR}"/*.log; do
     HOURS=$((DURATION / 3600))
     MINS=$(( (DURATION % 3600) / 60 ))
     EST_OBJ=$((OBJ_PER_SEC * DURATION))
-    OBJ_MIN=$((DURATION > 60 ? EST_OBJ / (DURATION / 60) : EST_OBJ))
 
+    DATE_TH=$(TZ='Asia/Bangkok' date -d @"$END_EP" '+%Y-%m-%d')
     START_TH=$(TZ='Asia/Bangkok' date -d @"$START_EP" '+%H:%M')
     END_TH=$(TZ='Asia/Bangkok' date -d @"$END_EP" '+%H:%M')
 
-    printf " %-18s │ %8s │ %8s │ %4dh%02dm │ %'12d │ %'10d │ %'8d\n" \
-        "$ACC" "$START_TH" "$END_TH" "$HOURS" "$MINS" "$EST_OBJ" "$OBJ_MIN" "$OBJ_PER_SEC" >> "$TMPFILE"
+    # Sort key: date desc (invert by prefix) + account asc
+    printf "%s|%s| %-12s │ %-18s │ %5s │ %5s │ %4dh%02dm │ %'12d\n" \
+        "$DATE_TH" "$ACC" "$DATE_TH" "$ACC" "$START_TH" "$END_TH" "$HOURS" "$MINS" "$EST_OBJ" >> "$TMPFILE"
 
     TOTAL_SEC=$((TOTAL_SEC + DURATION))
     TOTAL_OBJ=$((TOTAL_OBJ + EST_OBJ))
     COUNT=$((COUNT + 1))
 done
 
-sort "$TMPFILE"
+# Sort: date desc (-r on field 1), then account asc (field 2)
+sort -t'|' -k1,1r -k2,2 "$TMPFILE" | cut -d'|' -f3-
 rm -f "$TMPFILE"
 
-echo "────────────────────┼──────────┼──────────┼──────────┼──────────────┼────────────┼─────────"
+echo "──────────────┼────────────────────┼───────┼───────┼──────────┼──────────────"
 
 T_HR=$((TOTAL_SEC / 3600))
 T_MIN=$(( (TOTAL_SEC % 3600) / 60 ))
 
-printf " %-18s │ %8s │ %8s │ %4dh%02dm │ %'12d │ %10s │ %'8d\n" \
-    "TOTAL ($COUNT)" "" "" "$T_HR" "$T_MIN" "$TOTAL_OBJ" "" "$OBJ_PER_SEC"
+printf " %-12s │ %-18s │ %5s │ %5s │ %4dh%02dm │ %'12d\n" \
+    "" "TOTAL ($COUNT)" "" "" "$T_HR" "$T_MIN" "$TOTAL_OBJ"
 
 echo ""
 echo " Base rate: $OBJ_PER_SEC obj/s (from live test)"

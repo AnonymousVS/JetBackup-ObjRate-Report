@@ -1,6 +1,15 @@
-cat > /usr/local/sbin/jetbackup-obj-report.sh << 'SCRIPT'
 #!/bin/bash
+# ============================================================================
+# JetBackup Object Rate Report
+# Estimate S3 object upload rate per cPanel account from JetBackup 5 queue logs
+#
+# Repository : https://github.com/AnonymousVS/JetBackup-ObjRate-Report
+# Install to : /usr/local/sbin/jetbackup-obj-report.sh
+# Usage      : jetbackup-obj-report.sh
+# ============================================================================
+
 OBJ_PER_SEC=1400
+QUEUE_DIR="/usr/local/jetapps/var/log/jetbackup5/queue"
 TMPFILE=$(mktemp)
 
 echo ""
@@ -16,7 +25,9 @@ echo "────────────────────┼───�
 TOTAL_SEC=0
 TOTAL_OBJ=0
 
-for LOG in /usr/local/jetapps/var/log/jetbackup5/queue/*.log; do
+for LOG in "${QUEUE_DIR}"/*.log; do
+    [ ! -f "$LOG" ] && continue
+
     ACC=$(grep 'Transferring account' "$LOG" 2>/dev/null | tail -1 | sed 's/.*account "\([^"]*\)".*/\1/')
     [ -z "$ACC" ] && continue
 
@@ -63,5 +74,3 @@ echo ""
 echo " Base rate: $OBJ_PER_SEC obj/s (from live test)"
 echo " Source: JetBackup queue logs"
 echo ""
-SCRIPT
-chmod +x /usr/local/sbin/jetbackup-obj-report.sh

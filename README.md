@@ -1,6 +1,39 @@
 # JetBackup-ObjRate-Report
 
-Estimate S3 object upload rate (obj/sec, obj/min) per cPanel account from JetBackup 5 queue logs — no S3 API calls, no cron, no extra tools required.
+Estimate S3 object upload rate per cPanel account from JetBackup 5 queue logs — no S3 API calls, no cron, no extra tools required.
+
+## Quick Run (no install needed)
+
+```bash
+# All logs
+bash <(curl -fsSL https://raw.githubusercontent.com/AnonymousVS/JetBackup-ObjRate-Report/main/jetbackup-obj-report.sh)
+
+# Yesterday only
+bash <(curl -fsSL https://raw.githubusercontent.com/AnonymousVS/JetBackup-ObjRate-Report/main/jetbackup-obj-report.sh) yesterday
+
+# Today only
+bash <(curl -fsSL https://raw.githubusercontent.com/AnonymousVS/JetBackup-ObjRate-Report/main/jetbackup-obj-report.sh) today
+
+# Specific date
+bash <(curl -fsSL https://raw.githubusercontent.com/AnonymousVS/JetBackup-ObjRate-Report/main/jetbackup-obj-report.sh) 2026-04-04
+```
+
+## Installation (optional)
+
+Install once, then run anytime with just `jetbackup-obj-report.sh`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AnonymousVS/JetBackup-ObjRate-Report/main/jetbackup-obj-report.sh \
+    -o /usr/local/sbin/jetbackup-obj-report.sh && chmod +x /usr/local/sbin/jetbackup-obj-report.sh
+```
+
+After installing:
+
+```bash
+jetbackup-obj-report.sh
+jetbackup-obj-report.sh yesterday
+jetbackup-obj-report.sh 2026-04-04
+```
 
 ## Why?
 
@@ -16,8 +49,33 @@ JetBackup queue log → parse Start/End time per account → Duration × baselin
 
 - **Data source**: `/usr/local/jetapps/var/log/jetbackup5/queue/*.log`
 - **Zero S3 API calls** — reads local log files only
-- **Zero resource usage** — just `grep` + `awk` + `date`
+- **Zero resource usage** — just `grep` + `date`
 - **Instant results** — no waiting for ListObjects
+- **Date column** — sort by date (newest first), then by account name A-Z
+
+## Sample Output
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║  BACKUP REPORT — ns5041423 — 06 Apr 2026 08:30
+╠══════════════════════════════════════════════════════════════════════════╣
+║  Filter: All logs
+╚══════════════════════════════════════════════════════════════════════════╝
+
+ Date         │ Account            │ Start │ End   │ Duration │  Est.Objects
+──────────────┼────────────────────┼───────┼───────┼──────────┼──────────────
+ 2026-04-05   │ jan2026newkey      │ 22:53 │ 07:34 │    8h41m │   43,806,000
+ 2026-04-05   │ y2026m02sv01       │ 22:45 │ 02:04 │    3h18m │   16,714,600
+ 2026-04-05   │ y2026m03sv01       │ 22:56 │ 10:43 │   11h47m │   59,424,400
+ 2026-04-05   │ y2026m04ns504      │ 22:32 │ 22:40 │    0h07m │      667,800
+ 2026-04-04   │ jan2026newkey      │ 02:04 │ 17:41 │   15h37m │   78,775,200
+ 2026-04-04   │ y2026m03sv01       │ 19:04 │ 20:52 │    1h48m │    9,076,200
+──────────────┼────────────────────┼───────┼───────┼──────────┼──────────────
+              │ TOTAL (6)          │       │       │   41h18m │  208,464,200
+
+ Base rate: 1400 obj/s (from live test)
+ Source: JetBackup queue logs
+```
 
 ## Requirements
 
@@ -25,55 +83,6 @@ JetBackup queue log → parse Start/End time per account → Duration × baselin
 - S3-compatible destination configured (OVH, AWS, Wasabi, etc.)
 - Bash (any version)
 - Root access
-
-## Installation
-
-### One-liner
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/AnonymousVS/JetBackup-ObjRate-Report/main/jetbackup-obj-report.sh \
-    -o /usr/local/sbin/jetbackup-obj-report.sh && chmod +x /usr/local/sbin/jetbackup-obj-report.sh
-```
-
-### Manual
-
-```bash
-# Download
-wget https://raw.githubusercontent.com/AnonymousVS/JetBackup-ObjRate-Report/main/jetbackup-obj-report.sh
-
-# Install
-mv jetbackup-obj-report.sh /usr/local/sbin/
-chmod +x /usr/local/sbin/jetbackup-obj-report.sh
-```
-
-## Usage
-
-```bash
-jetbackup-obj-report.sh
-```
-
-Run anytime — typically in the morning to review last night's backup performance.
-
-## Sample Output
-
-```
-╔══════════════════════════════════════════════════════════════════╗
-║         BACKUP REPORT — ns5041423 — 06 Apr 2026 08:30          ║
-╚══════════════════════════════════════════════════════════════════╝
-
- Account            │ Start    │ End      │ Duration │  Est.Objects │    obj/min │  obj/sec
-────────────────────┼──────────┼──────────┼──────────┼──────────────┼────────────┼─────────
- jan2026newkey      │    02:04 │    17:41 │   15h37m │   78,775,200 │     84,071 │    1,400
- y2026m02sv01       │    22:45 │    02:04 │    3h18m │   16,714,600 │     84,417 │    1,400
- y2026m03ns504      │    22:42 │    22:42 │    0h00m │        4,200 │      4,200 │    1,400
- y2026m03sv01       │    22:56 │    10:43 │   11h47m │   59,424,400 │     84,051 │    1,400
- y2026m04ns504      │    16:50 │    18:15 │    1h25m │    7,155,400 │     84,181 │    1,400
-────────────────────┼──────────┼──────────┼──────────┼──────────────┼────────────┼─────────
- TOTAL              │          │          │   48h29m │  244,409,200 │            │    1,400
-
- Base rate: 1400 obj/s (from live test)
- Source: JetBackup queue logs
-```
 
 ## Configuration
 
@@ -103,7 +112,6 @@ sed -i 's/OBJ_PER_SEC=1400/OBJ_PER_SEC=YOUR_VALUE/' /usr/local/sbin/jetbackup-ob
 ## Limitations
 
 - **obj/sec is estimated**, not measured in real-time — based on `Duration × baseline rate`
-- obj/sec will be the **same value for all accounts** (it's a constant multiplier)
 - For **real obj/sec per account**, you need live monitoring during backup execution
 - Designed for JetBackup 5 with S3-compatible Incremental backup mode
 
